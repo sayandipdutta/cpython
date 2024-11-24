@@ -1240,6 +1240,7 @@ typedef struct {
     PyObject *items;
     PyObject *defaults;
     Py_ssize_t nitems;
+    Py_ssize_t ndefaults;
 } itemtuplegetterobject;
 
 // Forward declarations
@@ -1254,21 +1255,25 @@ _operator.itemtuplegetter.__new__ as itemtuplegetter_new
         iterable of items to get from an object
     /
     defaults as defaultitbl: object = None
-        iterable of defaults to replace of missing items
+        iterable of defaults to replace of missing items, if None treated as ()
 
 Return a callable object that fetches the given items from its operand in a tuple.
 
-If defaults is given, when called on an object where i-th `items is not present,
+If defaults is given, when called on an object where i-th `items` is not present,
 the corresponding defaults is returned instead. If the defaults iterable is
 shorter than subscripts iterable, the remaining subscripts have no defaults.
 If the defaults iterable is longer than subscripts iterable, extra defaults are
 ignored.
 
+The returned callable has two read-only properties:
+    operator.itemtuplegetter.items: a tuple containing items to fetch
+    operator.itemtuplegetter.defaults: a tuple containing provided defaults
+
 For example,
-After f = itemgetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).
-After g = itemgetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.
-After h = itemgetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).
-After i = itemgetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).
+After f = itemtuplegetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).
+After g = itemtuplegetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.
+After h = itemtuplegetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).
+After i = itemtuplegetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).
 [clinic start generated code]*/
 
 static PyObject *
@@ -1279,7 +1284,7 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
 {
     itemtuplegetterobject *itg;
     PyObject *items = NULL, *defaults = NULL;
-    Py_ssize_t nitems;
+    Py_ssize_t nitems, ndefaults;
 
     items = PySequence_Tuple(itbl);
     if (items == NULL) {
@@ -1298,6 +1303,7 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
             return NULL;
         }
     }
+    ndefaults = PyTuple_GET_SIZE(defaults);
 
     _operator_state *state = _PyType_GetModuleState(type);
     /* create itemtuplegetterobject structure */
@@ -1309,6 +1315,7 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
     itg->items = Py_NewRef(items);
     itg->defaults = Py_NewRef(defaults);
     itg->nitems = nitems;
+    itg->ndefaults = ndefaults;
 
     PyObject_GC_Track(itg);
     return (PyObject *)itg;
@@ -1345,6 +1352,8 @@ static PyObject *
 itemtuplegetter_call(itemtuplegetterobject *itg, PyObject *args, PyObject *kw)
 {
     assert(PyTuple_CheckExact(args));
+    if (!_PyArg_NoKeywords("itemtuplegetter", kw))
+        return NULL;
     if (!_PyArg_CheckPositional("itemtuplegetter", PyTuple_GET_SIZE(args), 1, 1))
         return NULL;
     return itemtuplegetter_call_impl(itg, PyTuple_GET_ITEM(args, 0));
@@ -1354,7 +1363,7 @@ static PyObject *
 itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
 {
     PyObject *result;
-    Py_ssize_t i, nitems=itg->nitems;
+    Py_ssize_t nitems=itg->nitems, ndefaults=itg->ndefaults;
 
     result = PyTuple_New(nitems);
     if (result == NULL)
@@ -1363,19 +1372,33 @@ itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
     if (nitems == 0)
         return result;
 
-    for (i=0 ; i < nitems ; i++) {
+    Py_ssize_t i = 0;
+
+    if (ndefaults) {
+        Py_ssize_t min_items = ndefaults < nitems ? ndefaults : nitems;
+
+        for (i=0 ; i < min_items; i++) {
+            PyObject *item, *val, *found;
+
+            item = PyTuple_GET_ITEM(itg->items, i);
+            found = PyObject_GetItem(obj, item);
+            val = (found == NULL) ? PyTuple_GET_ITEM(itg->defaults, i) : found;
+            PyTuple_SET_ITEM(result, i, val);
+        }
+        PyErr_Clear();
+
+        if (min_items == nitems)
+            return result;
+    }
+
+    for (; i < nitems; i++) {
         PyObject *item, *val;
 
         item = PyTuple_GET_ITEM(itg->items, i);
         val = PyObject_GetItem(obj, item);
         if (val == NULL) {
-            val = PyTuple_GET_ITEM(itg->defaults, i);
-
-            if (val == NULL) {
-                Py_DECREF(result);
-                return NULL;
-            }
-            PyErr_Clear();
+            Py_DECREF(result);
+            return NULL;
         }
         PyTuple_SET_ITEM(result, i, val);
     }
@@ -1424,6 +1447,7 @@ static PyMemberDef itemtuplegetter_members[] = {
 static PyType_Slot itemtuplegetter_type_slots[] = {
     {Py_tp_dealloc, itemtuplegetter_dealloc},
     {Py_tp_call, itemtuplegetter_call},
+    {Py_tp_doc, (void *)itemtuplegetter_new__doc__},
     {Py_tp_traverse, itemtuplegetter_traverse},
     {Py_tp_clear, itemtuplegetter_clear},
     {Py_tp_methods, itemtuplegetter_methods},
