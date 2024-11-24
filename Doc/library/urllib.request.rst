@@ -152,12 +152,24 @@ The :mod:`urllib.request` module defines the following functions:
    the path component of a URL.  This does not produce a complete URL.  The return
    value will already be quoted using the :func:`~urllib.parse.quote` function.
 
+   .. versionchanged:: 3.14
+      Windows drive letters are no longer converted to uppercase.
+
+   .. versionchanged:: 3.14
+      On Windows, ``:`` characters not following a drive letter are quoted. In
+      previous versions, :exc:`OSError` was raised if a colon character was
+      found in any position other than the second character.
+
 
 .. function:: url2pathname(path)
 
    Convert the path component *path* from a percent-encoded URL to the local syntax for a
    path.  This does not accept a complete URL.  This function uses
    :func:`~urllib.parse.unquote` to decode *path*.
+
+   .. versionchanged:: 3.14
+      Windows drive letters are no longer converted to uppercase.
+
 
 .. function:: getproxies()
 

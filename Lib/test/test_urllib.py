@@ -1423,14 +1423,16 @@ class Pathname_Tests(unittest.TestCase):
         self.assertEqual(fn('\\\\?\\unc\\server\\share\\dir'), '//server/share/dir')
         self.assertEqual(fn("C:"), '///C:')
         self.assertEqual(fn("C:\\"), '///C:/')
+        self.assertEqual(fn('c:\\a\\b.c'), '///c:/a/b.c')
         self.assertEqual(fn('C:\\a\\b.c'), '///C:/a/b.c')
         self.assertEqual(fn('C:\\a\\b.c\\'), '///C:/a/b.c/')
         self.assertEqual(fn('C:\\a\\\\b.c'), '///C:/a//b.c')
         self.assertEqual(fn('C:\\a\\b%#c'), '///C:/a/b%25%23c')
         self.assertEqual(fn('C:\\a\\b\xe9'), '///C:/a/b%C3%A9')
         self.assertEqual(fn('C:\\foo\\bar\\spam.foo'), "///C:/foo/bar/spam.foo")
-        # Long drive letter
-        self.assertRaises(IOError, fn, "XX:\\")
+        # NTFS alternate data streams
+        self.assertEqual(fn('C:\\foo:bar'), '///C:/foo%3Abar')
+        self.assertEqual(fn('foo:bar'), 'foo%3Abar')
         # No drive letter
         self.assertEqual(fn("\\folder\\test\\"), '/folder/test/')
         self.assertEqual(fn("\\\\folder\\test\\"), '//folder/test/')
@@ -1479,6 +1481,7 @@ class Pathname_Tests(unittest.TestCase):
         self.assertEqual(fn("///C/test/"), '\\C\\test\\')
         self.assertEqual(fn("////C/test/"), '\\\\C\\test\\')
         # DOS drive paths
+        self.assertEqual(fn('c:/path/to/file'), 'c:\\path\\to\\file')
         self.assertEqual(fn('C:/path/to/file'), 'C:\\path\\to\\file')
         self.assertEqual(fn('C:/path/to/file/'), 'C:\\path\\to\\file\\')
         self.assertEqual(fn('C:/path/to//file'), 'C:\\path\\to\\\\file')
@@ -1491,10 +1494,12 @@ class Pathname_Tests(unittest.TestCase):
         # UNC paths
         self.assertEqual(fn('//server/path/to/file'), '\\\\server\\path\\to\\file')
         self.assertEqual(fn('////server/path/to/file'), '\\\\server\\path\\to\\file')
-        self.assertEqual(fn('/////server/path/to/file'), '\\\\\\server\\path\\to\\file')
+        self.assertEqual(fn('/////server/path/to/file'), '\\\\server\\path\\to\\file')
         # Localhost paths
         self.assertEqual(fn('//localhost/C:/path/to/file'), 'C:\\path\\to\\file')
         self.assertEqual(fn('//localhost/C|/path/to/file'), 'C:\\path\\to\\file')
+        self.assertEqual(fn('//localhost/path/to/file'), '\\path\\to\\file')
+        self.assertEqual(fn('//localhost//server/path/to/file'), '\\\\server\\path\\to\\file')
         # Percent-encoded forward slashes are preserved for backwards compatibility
         self.assertEqual(fn('C:/foo%2fbar'), 'C:\\foo/bar')
         self.assertEqual(fn('//server/share/foo%2fbar'), '\\\\server\\share\\foo/bar')
@@ -1513,7 +1518,7 @@ class Pathname_Tests(unittest.TestCase):
         self.assertEqual(fn('//foo/bar'), '//foo/bar')
         self.assertEqual(fn('///foo/bar'), '/foo/bar')
         self.assertEqual(fn('////foo/bar'), '//foo/bar')
-        self.assertEqual(fn('//localhost/foo/bar'), '//localhost/foo/bar')
+        self.assertEqual(fn('//localhost/foo/bar'), '/foo/bar')
 
     @unittest.skipUnless(os_helper.FS_NONASCII, 'need os_helper.FS_NONASCII')
     def test_url2pathname_nonascii(self):
