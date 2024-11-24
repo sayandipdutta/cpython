@@ -1383,9 +1383,9 @@ itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
             item = PyTuple_GET_ITEM(itg->items, i);
             found = PyObject_GetItem(obj, item);
             val = (found == NULL) ? PyTuple_GET_ITEM(itg->defaults, i) : found;
+            PyErr_Clear();
             PyTuple_SET_ITEM(result, i, val);
         }
-        PyErr_Clear();
 
         if (min_items == nitems)
             return result;
