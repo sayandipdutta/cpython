@@ -1521,19 +1521,23 @@ PyDoc_STRVAR(itemtuplegetter_new__doc__,
 "  items\n"
 "    iterable of items to get from an object\n"
 "  defaults\n"
-"    iterable of defaults to replace of missing items\n"
+"    iterable of defaults to replace of missing items, if None treated as ()\n"
 "\n"
-"If defaults is given, when called on an object where i-th `items is not present,\n"
+"If defaults is given, when called on an object where i-th `items` is not present,\n"
 "the corresponding defaults is returned instead. If the defaults iterable is\n"
 "shorter than subscripts iterable, the remaining subscripts have no defaults.\n"
 "If the defaults iterable is longer than subscripts iterable, extra defaults are\n"
 "ignored.\n"
 "\n"
+"The returned callable has two read-only properties:\n"
+"    operator.itemtuplegetter.items: a tuple containing items to fetch\n"
+"    operator.itemtuplegetter.defaults: a tuple containing provided defaults\n"
+"\n"
 "For example,\n"
-"After f = itemgetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).\n"
-"After g = itemgetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.\n"
-"After h = itemgetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).\n"
-"After i = itemgetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).");
+"After f = itemtuplegetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).\n"
+"After g = itemtuplegetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.\n"
+"After h = itemtuplegetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).\n"
+"After i = itemtuplegetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).");
 
 static PyObject *
 itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
@@ -1591,4 +1595,4 @@ skip_optional_pos:
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=84a7e8f30d03cfb2 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=fecd71fb7c77a77d input=a9049054013a1b77]*/

@@ -590,6 +590,15 @@ class OperatorTestCase:
         ## validate base
         self.assertEqual(base(seq), (-1, -2, 5))
 
+        ## inifinite iterators as defaults
+        def natural_numbers():
+            start = 1
+            while True:
+                yield start
+                start += 1
+        self.assertEqual(operator.itemtuplegetter([0, 5, 4, 2], defaults=natural_numbers())("abcd"),
+                         ("a", 2, 3, "c"))
+
         ## str
         self.assertEqual(operator.itemtuplegetter([10, 12, 5], defaults="abc")(seq),
                          ("a", "b", 5))
@@ -611,7 +620,11 @@ class OperatorTestCase:
         self.assertEqual(itg.defaults, ())
         itg = operator.itemtuplegetter(iter([1]), defaults=range(2))
         self.assertEqual(itg.items, (1,))
-        self.assertEqual(itg.defaults, (0, 1))
+        self.assertEqual(itg.defaults, (0,))
+        ## extra defaults are ignored
+        itg = operator.itemtuplegetter([], defaults=(1, 2, 3, 4, 5))
+        self.assertEqual(itg.items, ())
+        self.assertEqual(itg.defaults, ())
 
         self.assertRaises(AttributeError, setattr, itg, "items", 2)
         self.assertRaises(AttributeError, setattr, itg, "defaults", 2)

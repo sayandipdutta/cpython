@@ -1279,12 +1279,14 @@ After i = itemtuplegetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2,
 static PyObject *
 itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
                          PyObject *defaultitbl)
-/*[clinic end generated code: output=37d6a97f69ed1fc1 input=62951fc0246b99f0]*/
+/*[clinic end generated code: output=37d6a97f69ed1fc1 input=45599a5989a9fa76]*/
 
 {
     itemtuplegetterobject *itg;
-    PyObject *items = NULL, *defaults = NULL;
-    Py_ssize_t nitems, ndefaults;
+    PyObject *items = NULL;
+    PyObject *defaults = NULL;
+    Py_ssize_t nitems;
+    PyObject *it;
 
     items = PySequence_Tuple(itbl);
     if (items == NULL) {
@@ -1296,15 +1298,54 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
 
     if (defaultitbl == Py_None) {
         defaults = PyTuple_New(0);
-    } else {
-        defaults = PySequence_Tuple(defaultitbl);
-        if (defaults == NULL) {
+        if (defaults == NULL)
+            return NULL;
+    }
+    else if (PySequence_Check(defaultitbl)) {
+        PyObject *tup = PySequence_Tuple(defaultitbl);
+        if (tup == NULL) {
             Py_XDECREF(defaults);
             return NULL;
         }
+        PyObject *slice = PySequence_GetSlice(tup, 0u, nitems);
+        if (slice == NULL) {
+            Py_XDECREF(defaults);
+            Py_XDECREF(tup);
+            return NULL;
+        }
+        defaults = slice;
     }
-    ndefaults = PyTuple_GET_SIZE(defaults);
+    else {
+        it = PyObject_GetIter(defaultitbl);
+        int j;
+        if (it == NULL)
+            return NULL;
 
+        /* Guess result size and allocate space. */
+        int n = PyObject_LengthHint(defaultitbl, nitems);
+        if (n == -1)
+            goto Fail;
+        defaults = PyTuple_New(n);
+        if (defaults == NULL)
+            goto Fail;
+
+        /* Fill the tuple. */
+        for (j = 0; j < nitems; ++j) {
+            PyObject *item = PyIter_Next(it);
+            if (item == NULL) {
+                if (PyErr_Occurred())
+                    goto Fail;
+                break;
+            }
+            PyTuple_SET_ITEM(defaults, j, item);
+        }
+
+        /* Cut tuple back if guess was too large. */
+        if (j < n && _PyTuple_Resize(&defaults, j) != 0)
+            goto Fail;
+        Py_DECREF(it);
+
+    }
     _operator_state *state = _PyType_GetModuleState(type);
     /* create itemtuplegetterobject structure */
     itg = PyObject_GC_New(itemtuplegetterobject, (PyTypeObject *) state->itemtuplegetter_type);
@@ -1313,12 +1354,16 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
     }
 
     itg->items = Py_NewRef(items);
-    itg->defaults = Py_NewRef(defaults);
     itg->nitems = nitems;
-    itg->ndefaults = ndefaults;
+    itg->defaults = defaults;
 
     PyObject_GC_Track(itg);
     return (PyObject *)itg;
+
+    Fail:
+        Py_XDECREF(defaults);
+        Py_DECREF(it);
+        return NULL;
 }
 
 static int
@@ -1363,7 +1408,8 @@ static PyObject *
 itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
 {
     PyObject *result;
-    Py_ssize_t nitems=itg->nitems, ndefaults=itg->ndefaults;
+    Py_ssize_t nitems=itg->nitems;
+    Py_ssize_t ndefaults=itg->ndefaults;
 
     result = PyTuple_New(nitems);
     if (result == NULL)
@@ -1374,20 +1420,24 @@ itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
 
     Py_ssize_t i = 0;
 
-    if (ndefaults) {
-        Py_ssize_t min_items = ndefaults < nitems ? ndefaults : nitems;
-
-        for (i=0 ; i < min_items; i++) {
+    if (ndefaults > 0) {
+        for (i=0 ; i < ndefaults; i++) {
             PyObject *item, *val, *found;
 
             item = PyTuple_GET_ITEM(itg->items, i);
             found = PyObject_GetItem(obj, item);
-            val = (found == NULL) ? PyTuple_GET_ITEM(itg->defaults, i) : found;
-            PyErr_Clear();
+            if (found == NULL) {
+                val = PyTuple_GET_ITEM(itg->defaults, i);
+                PyErr_Clear();
+                Py_INCREF(val);
+            }
+            else {
+                val = found;
+            }
             PyTuple_SET_ITEM(result, i, val);
         }
 
-        if (min_items == nitems)
+        if (ndefaults == nitems)
             return result;
     }
 

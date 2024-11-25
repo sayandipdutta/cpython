@@ -330,8 +330,19 @@ class itemtuplegetter:
     __slots__ = ('_items', '_defaults')
 
     def __init__(self, items, /, defaults = None):
-        self._items = tuple(items)
-        self._defaults = () if defaults is None else tuple(defaults)
+        self._items = tuple(items) if not isinstance(items, tuple) else items
+        if defaults is None:
+            self._defaults = ()
+        elif isinstance(defaults, tuple):
+            self._defaults = defaults[:len(self._items)]
+        elif isinstance(defaults, (list, range)):
+            self._defaults = tuple(defaults[:len(self._items)])
+        else:
+            def islice(iterable):
+                for _, default in zip(self._items, defaults, strict=False):
+                    yield default
+
+            self._defaults = tuple(islice(defaults))
 
     @property
     def items(self):
