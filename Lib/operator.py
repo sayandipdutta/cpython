@@ -329,7 +329,7 @@ class itemtuplegetter:
     """
     __slots__ = ('_items', '_defaults')
 
-    def __init__(self, items, /, defaults = None):
+    def __init__(self, items, /, defaults=None):
         self._items = tuple(items) if not isinstance(items, tuple) else items
         if defaults is None:
             self._defaults = ()
