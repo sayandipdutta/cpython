@@ -370,6 +370,7 @@ struct _Py_global_strings {
         STRUCT_FOR_ID(decoder)
         STRUCT_FOR_ID(default)
         STRUCT_FOR_ID(defaultaction)
+        STRUCT_FOR_ID(defaults)
         STRUCT_FOR_ID(delete)
         STRUCT_FOR_ID(depth)
         STRUCT_FOR_ID(desired_access)
