@@ -1286,11 +1286,11 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
     PyObject *items = NULL;
     PyObject *defaults = NULL;
     Py_ssize_t nitems;
+    Py_ssize_t ndefaults;
     PyObject *it;
 
     items = PySequence_Tuple(itbl);
     if (items == NULL) {
-        Py_XDECREF(items);
         return NULL;
     }
 
@@ -1316,21 +1316,22 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
         defaults = slice;
     }
     else {
+        Py_ssize_t j;
         it = PyObject_GetIter(defaultitbl);
-        int j;
         if (it == NULL)
             return NULL;
 
         /* Guess result size and allocate space. */
-        int n = PyObject_LengthHint(defaultitbl, nitems);
+        Py_ssize_t n = PyObject_LengthHint(defaultitbl, nitems);
         if (n == -1)
             goto Fail;
+        n = (n < nitems) ? n : nitems;
         defaults = PyTuple_New(n);
         if (defaults == NULL)
             goto Fail;
 
         /* Fill the tuple. */
-        for (j = 0; j < nitems; ++j) {
+        for (j = 0; j < n; ++j) {
             PyObject *item = PyIter_Next(it);
             if (item == NULL) {
                 if (PyErr_Occurred())
@@ -1344,8 +1345,9 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
         if (j < n && _PyTuple_Resize(&defaults, j) != 0)
             goto Fail;
         Py_DECREF(it);
-
     }
+    ndefaults = PyTuple_GET_SIZE(defaults);
+
     _operator_state *state = _PyType_GetModuleState(type);
     /* create itemtuplegetterobject structure */
     itg = PyObject_GC_New(itemtuplegetterobject, (PyTypeObject *) state->itemtuplegetter_type);
@@ -1356,6 +1358,7 @@ itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
     itg->items = Py_NewRef(items);
     itg->nitems = nitems;
     itg->defaults = defaults;
+    itg->ndefaults = ndefaults;
 
     PyObject_GC_Track(itg);
     return (PyObject *)itg;
