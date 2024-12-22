@@ -471,6 +471,171 @@ class OperatorTestCase:
         self.assertEqual(operator.itemgetter(0)(['a', 'b', 'c']), 'a')
         self.assertEqual(operator.itemgetter(0)(range(100, 200)), 100)
 
+    def test_itemtuplegetter(self):
+        operator = self.module
+        self.assertRaises(TypeError, operator.itemtuplegetter, 2)
+        self.assertRaises(TypeError, operator.itemtuplegetter, 2, 2)
+        self.assertRaises(TypeError, operator.itemtuplegetter, 2, 2,)
+        self.assertRaises(TypeError, operator.itemtuplegetter, (2,), 2)
+        a = 'ABCDE'
+        f = operator.itemtuplegetter((2,))
+        self.assertEqual(f(a), ('C',))
+        self.assertRaises(TypeError, f)
+        self.assertRaises(TypeError, f, a, 3)
+        self.assertRaises(TypeError, f, a, size=3)
+        f = operator.itemtuplegetter((10,))
+        self.assertRaises(IndexError, f, a)
+        f = operator.itemtuplegetter((10,), defaults=(0,))
+        self.assertEqual(f(a), (0,))
+
+
+        class C(object):
+            def __getitem__(self, name):
+                raise SyntaxError
+        self.assertRaises(SyntaxError, operator.itemtuplegetter((42,)), C())
+
+        f = operator.itemtuplegetter(('name',))
+        self.assertRaises(TypeError, f, a)
+        self.assertRaises(TypeError, operator.itemtuplegetter)
+
+        d = dict(key='val')
+        f = operator.itemtuplegetter(('key',))
+        self.assertEqual(f(d), ('val',))
+        f = operator.itemtuplegetter(('nonkey',))
+        self.assertRaises(KeyError, f, d)
+
+        # example used in the docs
+        inventory = [('apple', 3), ('banana', 2), ('pear', 5), ('orange', 1)]
+        sorter = operator.itemtuplegetter((1, 0))
+        self.assertEqual(list(map(sorter, inventory)),
+            [(3, 'apple'), (2, 'banana'), (5, 'pear'), (1, 'orange')])
+        self.assertEqual(sorted(inventory, key=sorter),
+            [('orange', 1), ('banana', 2), ('apple', 3), ('pear', 5)])
+
+        # multiple gets
+        data = list(map(str, range(20)))
+        self.assertEqual(operator.itemtuplegetter((2,10,5))(data), ('2', '10', '5'))
+        self.assertRaises(TypeError, operator.itemtuplegetter((2, 'x', 5)), data)
+
+        # interesting indices
+        t = tuple('abcde')
+        self.assertEqual(operator.itemtuplegetter((-1,))(t), ('e',))
+        self.assertEqual(operator.itemtuplegetter((slice(2, 4),))(t), (('c', 'd'),))
+
+        # defaults
+        inventory = dict(inventory)
+        seq = range(10)
+
+        kwd_default = operator.itemtuplegetter(("banana", "mango"), defaults=(0, -1))
+        pos_default = operator.itemtuplegetter(("banana", "mango"), (0, -1))
+        # positional default
+        self.assertEqual(kwd_default(inventory), (2, -1))
+        self.assertEqual(pos_default(inventory), (2, -1))
+
+        # defaults is None by default, and None is treated as empty tuple
+        f1 = operator.itemtuplegetter(())
+        f2 = operator.itemtuplegetter((), None)
+        f3 = operator.itemtuplegetter((), ())
+
+        self.assertEqual(repr(f1), repr(f2))
+        self.assertEqual(f1.defaults, f2.defaults)
+
+        self.assertEqual(repr(f1), repr(f3))
+        self.assertEqual(f1.defaults, f3.defaults)
+
+        # default shorter than items and items missing
+        self.assertRaises(KeyError,
+                          operator.itemtuplegetter(("banana", "mango"), defaults=(0,)),
+                          inventory)
+        self.assertRaises(IndexError,
+                          operator.itemtuplegetter((9, 10), defaults=(0,)),
+                          seq)
+        # default shorter than items, but missing item has default
+        self.assertEqual(operator.itemtuplegetter(("mango", "banana"), defaults=(0,))(inventory),
+                         (0, 2))
+        # default longer than items and items missing
+        self.assertEqual(operator.itemtuplegetter(("banana", "mango"), defaults=(0, -1, 0))(inventory),
+                         (2, -1))
+        self.assertEqual(operator.itemtuplegetter((9, 10), defaults=(0, -1, 0))(seq),
+                         (9, -1))
+        # default shorter than items and items present
+        self.assertEqual(operator.itemtuplegetter(("banana", "pear"), defaults=(0, -1, 0))(inventory),
+                         (2, 5))
+        self.assertEqual(operator.itemtuplegetter((8, 9), defaults=(0, -1, 0))(seq),
+                         (8, 9))
+
+        # iterable variants
+        seq = range(10)
+        base = operator.itemtuplegetter((10, 12, 5), defaults=(-1, -2))
+
+        ## iterators
+        self.assertEqual(operator.itemtuplegetter(iter([10, 12, 5]), defaults=iter((-1, -2)))(seq),
+                         base(seq))
+        ## lists
+        self.assertEqual(operator.itemtuplegetter([10, 12, 5], defaults=[-1, -2])(seq),
+                         base(seq))
+        ## tuple subclass
+        class T(tuple):
+            'Tuple subclass'
+            pass
+        self.assertEqual(operator.itemtuplegetter(T((10, 12, 5)), defaults=T((-1, -2)))(seq),
+                         base(seq))
+        ## custom iterable
+        self.assertEqual(operator.itemtuplegetter(Seq1([10, 12, 5]), defaults=Seq2([-1, -2]))(seq),
+                         base(seq))
+        ## generator + range
+        g = (i for i in [10, 12, 5])
+        self.assertEqual(operator.itemtuplegetter(g, defaults=range(-1, -3, -1))(seq),
+                         base(seq))
+        ## validate base
+        self.assertEqual(base(seq), (-1, -2, 5))
+
+        ## inifinite iterators as defaults
+        def natural_numbers():
+            start = 1
+            while True:
+                yield start
+                start += 1
+        self.assertEqual(operator.itemtuplegetter([0, 5, 4, 2], defaults=natural_numbers())("abcd"),
+                         ("a", 2, 3, "c"))
+
+        ## str
+        self.assertEqual(operator.itemtuplegetter([10, 12, 5], defaults="abc")(seq),
+                         ("a", "b", 5))
+
+        # interesting init
+        EMPTY_TUPLE = ()
+        self.assertEqual(operator.itemtuplegetter(EMPTY_TUPLE)(seq), EMPTY_TUPLE)
+        self.assertEqual(operator.itemtuplegetter(EMPTY_TUPLE, EMPTY_TUPLE)(seq), EMPTY_TUPLE)
+        self.assertEqual(operator.itemtuplegetter(EMPTY_TUPLE, EMPTY_TUPLE)(EMPTY_TUPLE), EMPTY_TUPLE)
+        self.assertEqual(operator.itemtuplegetter(iter(EMPTY_TUPLE), EMPTY_TUPLE)(EMPTY_TUPLE), EMPTY_TUPLE)
+        self.assertEqual(operator.itemtuplegetter(iter(EMPTY_TUPLE), None)(EMPTY_TUPLE), EMPTY_TUPLE)
+
+        # attributes
+        itg = operator.itemtuplegetter((1, 2, 3))
+        self.assertEqual(itg.items, (1, 2, 3))
+        self.assertEqual(itg.defaults, ())
+        itg = operator.itemtuplegetter((1, 2, 3), defaults=None)
+        self.assertEqual(itg.items, (1, 2, 3))
+        self.assertEqual(itg.defaults, ())
+        itg = operator.itemtuplegetter(iter([1]), defaults=range(2))
+        self.assertEqual(itg.items, (1,))
+        self.assertEqual(itg.defaults, (0,))
+        ## extra defaults are ignored
+        itg = operator.itemtuplegetter([], defaults=(1, 2, 3, 4, 5))
+        self.assertEqual(itg.items, ())
+        self.assertEqual(itg.defaults, ())
+
+        self.assertRaises(AttributeError, setattr, itg, "items", 2)
+        self.assertRaises(AttributeError, setattr, itg, "defaults", 2)
+
+        with self.assertRaises(AttributeError):
+            itg.items = 2
+        with self.assertRaises(AttributeError):
+            itg.items += (2,)
+        with self.assertRaises(AttributeError):
+            itg.defaults += (2,)
+
     def test_methodcaller(self):
         operator = self.module
         self.assertRaises(TypeError, operator.methodcaller)
@@ -650,6 +815,13 @@ class OperatorTestCase:
         sig = inspect.signature(operator.itemgetter(2, 3, 5))
         self.assertEqual(str(sig), '(obj, /)')
 
+    def test_itemtuplegetter_signature(self):
+        operator = self.module
+        sig = inspect.signature(operator.itemtuplegetter)
+        self.assertEqual(str(sig), '(items, /, defaults=None)')
+        sig = inspect.signature(operator.itemtuplegetter((2, 3, 5)))
+        self.assertEqual(str(sig), '(obj, /)')
+
     def test_methodcaller_signature(self):
         operator = self.module
         sig = inspect.signature(operator.methodcaller)
@@ -715,6 +887,25 @@ class OperatorPickleTestCase:
                 f2 = self.copy(f, proto)
                 self.assertEqual(repr(f2), repr(f))
                 self.assertEqual(f2(a), f(a))
+
+    def test_itemtuplegetter(self):
+        itemtuplegetter = self.module.itemtuplegetter
+        a = 'ABCDE'
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                f = itemtuplegetter((1, 3))
+                f2 = self.copy(f, proto)
+                self.assertEqual(repr(f2), repr(f))
+                self.assertEqual(f2(a), f(a))
+                self.assertEqual(f2.defaults, f.defaults)
+                self.assertEqual(f2.items, f.items)
+                # multiple gets
+                f = itemtuplegetter((1, 3), defaults=iter(range(3)))
+                f2 = self.copy(f, proto)
+                self.assertEqual(repr(f2), repr(f))
+                self.assertEqual(f2(a), f(a))
+                self.assertEqual(f2.defaults, f.defaults)
+                self.assertEqual(f2.items, f.items)
 
     def test_methodcaller(self):
         methodcaller = self.module.methodcaller

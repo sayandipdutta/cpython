@@ -14,10 +14,10 @@ __all__ = ['abs', 'add', 'and_', 'attrgetter', 'call', 'concat', 'contains', 'co
            'delitem', 'eq', 'floordiv', 'ge', 'getitem', 'gt', 'iadd', 'iand',
            'iconcat', 'ifloordiv', 'ilshift', 'imatmul', 'imod', 'imul',
            'index', 'indexOf', 'inv', 'invert', 'ior', 'ipow', 'irshift',
-           'is_', 'is_none', 'is_not', 'is_not_none', 'isub', 'itemgetter', 'itruediv',
-           'ixor', 'le', 'length_hint', 'lshift', 'lt', 'matmul', 'methodcaller', 'mod',
-           'mul', 'ne', 'neg', 'not_', 'or_', 'pos', 'pow', 'rshift',
-           'setitem', 'sub', 'truediv', 'truth', 'xor']
+           'is_', 'is_none', 'is_not', 'is_not_none', 'isub', 'itemgetter',
+           'itemtuplegetter', 'itruediv', 'ixor', 'le', 'length_hint', 'lshift', 'lt',
+           'matmul', 'methodcaller', 'mod', 'mul', 'ne', 'neg', 'not_', 'or_', 'pos',
+           'pow', 'rshift', 'setitem', 'sub', 'truediv', 'truth', 'xor']
 
 from builtins import abs as _abs
 
@@ -306,6 +306,81 @@ class itemgetter:
 
     def __reduce__(self):
         return self.__class__, self._items
+
+class itemtuplegetter:
+    """
+    Return a callable object that fetches the given items from its operand in a tuple.
+
+    If defaults is given, when called on an object where i-th `items` is not present,
+    the corresponding defaults is returned instead. If the defaults iterable is
+    shorter than subscripts iterable, the remaining subscripts have no defaults.
+    If the defaults iterable is longer than subscripts iterable, extra defaults are
+    ignored.
+
+    The returned callable has two read-only properties:
+        operator.itemtuplegetter.items: a tuple containing items to fetch
+        operator.itemtuplegetter.defaults: a tuple containing provided defaults
+
+    For example,
+    After f = itemtuplegetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).
+    After g = itemtuplegetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.
+    After h = itemtuplegetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).
+    After i = itemtuplegetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).
+    """
+    __slots__ = ('_items', '_defaults')
+
+    def __init__(self, items, /, defaults=None):
+        self._items = tuple(items) if not isinstance(items, tuple) else items
+        if defaults is None:
+            self._defaults = ()
+        elif isinstance(defaults, tuple):
+            self._defaults = defaults[:len(self._items)]
+        elif isinstance(defaults, (list, range)):
+            self._defaults = tuple(defaults[:len(self._items)])
+        else:
+            def islice(iterable):
+                for _, default in zip(self._items, defaults, strict=False):
+                    yield default
+
+            self._defaults = tuple(islice(defaults))
+
+    @property
+    def items(self):
+        return self._items
+
+    @property
+    def defaults(self):
+        return self._defaults
+
+    def __call__(self, obj, /):
+        if not (defaults := self._defaults):
+            return tuple(obj[item] for item in self._items)
+        else:
+            result = []
+            append = result.append
+            items = iter(self._items)
+            for default in defaults:
+                try:
+                    item = next(items)
+                except StopIteration:
+                    return tuple(result)
+                try:
+                    append(obj[item])
+                except (IndexError, KeyError):
+                    append(default)
+
+            for item in items:
+                append(obj[item])
+            return tuple(result)
+
+    def __repr__(self):
+        return '%s.%s(%s, defaults=%s)' % (self.__class__.__module__,
+                                           self.__class__.__name__,
+                                           repr(self._items),
+                                           repr(self._defaults))
+
+    def __reduce__(self):
+        return self.__class__, (self._items, self._defaults)
 
 class methodcaller:
     """

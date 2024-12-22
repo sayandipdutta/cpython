@@ -9,6 +9,7 @@
 
 typedef struct {
     PyObject *itemgetter_type;
+    PyObject *itemtuplegetter_type;
     PyObject *attrgetter_type;
     PyObject *methodcaller_type;
 } _operator_state;
@@ -23,8 +24,10 @@ get_operator_state(PyObject *module)
 
 /*[clinic input]
 module _operator
+class _operator.itemtuplegetter "itemtuplegetterobject *" "&itemtuplegetter_type"
 [clinic start generated code]*/
-/*[clinic end generated code: output=da39a3ee5e6b4b0d input=672ecf48487521e7]*/
+/*[clinic end generated code: output=da39a3ee5e6b4b0d input=b774962bc68a4012]*/
+
 
 PyDoc_STRVAR(operator_doc,
 "Operator interface.\n\
@@ -1230,6 +1233,294 @@ static PyType_Spec itemgetter_type_spec = {
     .slots = itemgetter_type_slots,
 };
 
+/* itemtuplegetter object **********************************************************/
+
+typedef struct {
+    PyObject_HEAD
+    PyObject *items;
+    PyObject *defaults;
+    Py_ssize_t nitems;
+    Py_ssize_t ndefaults;
+} itemtuplegetterobject;
+
+// Forward declarations
+static PyObject *
+itemtuplegetter_call_impl(itemtuplegetterobject *, PyObject *);
+
+/*[clinic input]
+@classmethod
+_operator.itemtuplegetter.__new__ as itemtuplegetter_new
+
+    items as itbl: object
+        iterable of items to get from an object
+    /
+    defaults as defaultitbl: object = None
+        iterable of defaults to replace of missing items, if None treated as ()
+
+Return a callable object that fetches the given items from its operand in a tuple.
+
+If defaults is given, when called on an object where i-th `items` is not present,
+the corresponding defaults is returned instead. If the defaults iterable is
+shorter than subscripts iterable, the remaining subscripts have no defaults.
+If the defaults iterable is longer than subscripts iterable, extra defaults are
+ignored.
+
+The returned callable has two read-only properties:
+    operator.itemtuplegetter.items: a tuple containing items to fetch
+    operator.itemtuplegetter.defaults: a tuple containing provided defaults
+
+For example,
+After f = itemtuplegetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).
+After g = itemtuplegetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.
+After h = itemtuplegetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).
+After i = itemtuplegetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).
+[clinic start generated code]*/
+
+static PyObject *
+itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
+                         PyObject *defaultitbl)
+/*[clinic end generated code: output=37d6a97f69ed1fc1 input=45599a5989a9fa76]*/
+
+{
+    itemtuplegetterobject *itg;
+    PyObject *items = NULL;
+    PyObject *defaults = NULL;
+    Py_ssize_t nitems;
+    Py_ssize_t ndefaults;
+    PyObject *it;
+
+    items = PySequence_Tuple(itbl);
+    if (items == NULL) {
+        return NULL;
+    }
+
+    nitems = PyTuple_GET_SIZE(items);
+
+    if (defaultitbl == Py_None) {
+        defaults = PyTuple_New(0);
+        if (defaults == NULL)
+            return NULL;
+    }
+    else if (PySequence_Check(defaultitbl)) {
+        PyObject *tup = PySequence_Tuple(defaultitbl);
+        if (tup == NULL) {
+            Py_XDECREF(defaults);
+            return NULL;
+        }
+        PyObject *slice = PySequence_GetSlice(tup, 0u, nitems);
+        if (slice == NULL) {
+            Py_XDECREF(defaults);
+            Py_XDECREF(tup);
+            return NULL;
+        }
+        defaults = slice;
+    }
+    else {
+        Py_ssize_t j;
+        it = PyObject_GetIter(defaultitbl);
+        if (it == NULL)
+            return NULL;
+
+        /* Guess result size and allocate space. */
+        Py_ssize_t n = PyObject_LengthHint(defaultitbl, nitems);
+        if (n == -1)
+            goto Fail;
+        n = (n < nitems) ? n : nitems;
+        defaults = PyTuple_New(n);
+        if (defaults == NULL)
+            goto Fail;
+
+        /* Fill the tuple. */
+        for (j = 0; j < n; ++j) {
+            PyObject *item = PyIter_Next(it);
+            if (item == NULL) {
+                if (PyErr_Occurred())
+                    goto Fail;
+                break;
+            }
+            PyTuple_SET_ITEM(defaults, j, item);
+        }
+
+        /* Cut tuple back if guess was too large. */
+        if (j < n && _PyTuple_Resize(&defaults, j) != 0)
+            goto Fail;
+        Py_DECREF(it);
+    }
+    ndefaults = PyTuple_GET_SIZE(defaults);
+
+    _operator_state *state = _PyType_GetModuleState(type);
+    /* create itemtuplegetterobject structure */
+    itg = PyObject_GC_New(itemtuplegetterobject, (PyTypeObject *) state->itemtuplegetter_type);
+    if (itg == NULL) {
+        return NULL;
+    }
+
+    itg->items = Py_NewRef(items);
+    itg->nitems = nitems;
+    itg->defaults = defaults;
+    itg->ndefaults = ndefaults;
+
+    PyObject_GC_Track(itg);
+    return (PyObject *)itg;
+
+    Fail:
+        Py_XDECREF(defaults);
+        Py_DECREF(it);
+        return NULL;
+}
+
+static int
+itemtuplegetter_clear(itemtuplegetterobject *itg)
+{
+    Py_CLEAR(itg->items);
+    Py_CLEAR(itg->defaults);
+    return 0;
+}
+
+static void
+itemtuplegetter_dealloc(itemtuplegetterobject *itg)
+{
+    PyTypeObject *tp = Py_TYPE(itg);
+    PyObject_GC_UnTrack(itg);
+    (void)itemtuplegetter_clear(itg);
+    tp->tp_free(itg);
+    Py_DECREF(tp);
+}
+
+static int
+itemtuplegetter_traverse(itemtuplegetterobject *itg, visitproc visit, void *arg)
+{
+    Py_VISIT(Py_TYPE(itg));
+    Py_VISIT(itg->items);
+    Py_VISIT(itg->defaults);
+    return 0;
+}
+
+static PyObject *
+itemtuplegetter_call(itemtuplegetterobject *itg, PyObject *args, PyObject *kw)
+{
+    assert(PyTuple_CheckExact(args));
+    if (!_PyArg_NoKeywords("itemtuplegetter", kw))
+        return NULL;
+    if (!_PyArg_CheckPositional("itemtuplegetter", PyTuple_GET_SIZE(args), 1, 1))
+        return NULL;
+    return itemtuplegetter_call_impl(itg, PyTuple_GET_ITEM(args, 0));
+}
+
+static PyObject *
+itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
+{
+    PyObject *result;
+    Py_ssize_t nitems=itg->nitems;
+    Py_ssize_t ndefaults=itg->ndefaults;
+
+    result = PyTuple_New(nitems);
+    if (result == NULL)
+        return NULL;
+
+    if (nitems == 0)
+        return result;
+
+    Py_ssize_t i = 0;
+
+    if (ndefaults > 0) {
+        PyObject *item, *val, *found;
+        for (i=0 ; i < ndefaults; i++) {
+            item = PyTuple_GET_ITEM(itg->items, i);
+            found = PyObject_GetItem(obj, item);
+            if (found == NULL) {
+                val = PyTuple_GET_ITEM(itg->defaults, i);
+                PyErr_Clear();
+                Py_INCREF(val);
+            }
+            else {
+                val = found;
+            }
+            PyTuple_SET_ITEM(result, i, val);
+        }
+
+        if (ndefaults == nitems)
+            return result;
+    }
+
+    for (; i < nitems; i++) {
+        PyObject *item, *val;
+
+        item = PyTuple_GET_ITEM(itg->items, i);
+        val = PyObject_GetItem(obj, item);
+        if (val == NULL) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyTuple_SET_ITEM(result, i, val);
+    }
+    return result;
+}
+
+static PyObject *
+itemtuplegetter_repr(itemtuplegetterobject *itg)
+{
+    PyObject *repr;
+    const char *reprfmt;
+
+    int status = Py_ReprEnter((PyObject *)itg);
+    if (status != 0) {
+        if (status < 0)
+            return NULL;
+        return PyUnicode_FromFormat("%s(...)", Py_TYPE(itg)->tp_name);
+    }
+
+    reprfmt = "%s(%R, defaults=%R)";
+    repr = PyUnicode_FromFormat(reprfmt, Py_TYPE(itg)->tp_name, itg->items, itg->defaults);
+    Py_ReprLeave((PyObject *)itg);
+    return repr;
+}
+
+static PyObject *
+itemtuplegetter_reduce(itemtuplegetterobject *itg, PyObject *Py_UNUSED(ignored))
+{
+    return Py_BuildValue("O(OO)", Py_TYPE(itg), itg->items, itg->defaults);
+}
+
+static PyMethodDef itemtuplegetter_methods[] = {
+    {"__reduce__", (PyCFunction)itemtuplegetter_reduce, METH_NOARGS,
+     reduce_doc},
+    {NULL}
+};
+
+static PyMemberDef itemtuplegetter_members[] = {
+    {"items",                _Py_T_OBJECT,  offsetof(itemtuplegetterobject, items),      Py_READONLY,
+     "tuple of items to get from object in future itemtuplegetter calls"},
+    {"defaults",             _Py_T_OBJECT,  offsetof(itemtuplegetterobject, defaults),   Py_READONLY,
+     "tuple of defaults as in case of absent items in future itemtuplegetter calls"},
+    {NULL} /* Sentinel */
+};
+
+static PyType_Slot itemtuplegetter_type_slots[] = {
+    {Py_tp_dealloc, itemtuplegetter_dealloc},
+    {Py_tp_call, itemtuplegetter_call},
+    {Py_tp_doc, (void *)itemtuplegetter_new__doc__},
+    {Py_tp_traverse, itemtuplegetter_traverse},
+    {Py_tp_clear, itemtuplegetter_clear},
+    {Py_tp_methods, itemtuplegetter_methods},
+    {Py_tp_members, itemtuplegetter_members},
+    {Py_tp_getset, common_getset},
+    {Py_tp_new, itemtuplegetter_new},
+    {Py_tp_getattro, PyObject_GenericGetAttr},
+    {Py_tp_repr, itemtuplegetter_repr},
+    {0, 0}
+};
+
+static PyType_Spec itemtuplegetter_type_spec = {
+    .name = "operator.itemtuplegetter",
+    .basicsize = sizeof(itemtuplegetterobject),
+    .itemsize = 0,
+    .flags = (Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
+              Py_TPFLAGS_IMMUTABLETYPE),
+    .slots = itemtuplegetter_type_slots,
+};
+
+
 /* attrgetter object **********************************************************/
 
 typedef struct {
@@ -1943,6 +2234,15 @@ operator_exec(PyObject *module)
         return -1;
     }
 
+    state->itemtuplegetter_type = PyType_FromModuleAndSpec(module, &itemtuplegetter_type_spec, NULL);
+    if (state->itemtuplegetter_type == NULL) {
+        return -1;
+    }
+    if (PyModule_AddType(module, (PyTypeObject *)state->itemtuplegetter_type) < 0) {
+        return -1;
+    }
+
+
     state->methodcaller_type = PyType_FromModuleAndSpec(module, &methodcaller_type_spec, NULL);
     if (state->methodcaller_type == NULL) {
         return -1;
@@ -1968,6 +2268,7 @@ operator_traverse(PyObject *module, visitproc visit, void *arg)
     _operator_state *state = get_operator_state(module);
     Py_VISIT(state->attrgetter_type);
     Py_VISIT(state->itemgetter_type);
+    Py_VISIT(state->itemtuplegetter_type);
     Py_VISIT(state->methodcaller_type);
     return 0;
 }
@@ -1978,6 +2279,7 @@ operator_clear(PyObject *module)
     _operator_state *state = get_operator_state(module);
     Py_CLEAR(state->attrgetter_type);
     Py_CLEAR(state->itemgetter_type);
+    Py_CLEAR(state->itemtuplegetter_type);
     Py_CLEAR(state->methodcaller_type);
     return 0;
 }

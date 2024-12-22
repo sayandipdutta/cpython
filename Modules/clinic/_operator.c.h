@@ -2,6 +2,10 @@
 preserve
 [clinic start generated code]*/
 
+#if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+#  include "pycore_gc.h"          // PyGC_Head
+#  include "pycore_runtime.h"     // _Py_ID()
+#endif
 #include "pycore_abstract.h"      // _PyNumber_Index()
 #include "pycore_modsupport.h"    // _PyArg_CheckPositional()
 
@@ -1507,4 +1511,88 @@ _operator__compare_digest(PyObject *module, PyObject *const *args, Py_ssize_t na
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=972e2543c4fcf1ba input=a9049054013a1b77]*/
+
+PyDoc_STRVAR(itemtuplegetter_new__doc__,
+"itemtuplegetter(items, /, defaults=None)\n"
+"--\n"
+"\n"
+"Return a callable object that fetches the given items from its operand in a tuple.\n"
+"\n"
+"  items\n"
+"    iterable of items to get from an object\n"
+"  defaults\n"
+"    iterable of defaults to replace of missing items, if None treated as ()\n"
+"\n"
+"If defaults is given, when called on an object where i-th `items` is not present,\n"
+"the corresponding defaults is returned instead. If the defaults iterable is\n"
+"shorter than subscripts iterable, the remaining subscripts have no defaults.\n"
+"If the defaults iterable is longer than subscripts iterable, extra defaults are\n"
+"ignored.\n"
+"\n"
+"The returned callable has two read-only properties:\n"
+"    operator.itemtuplegetter.items: a tuple containing items to fetch\n"
+"    operator.itemtuplegetter.defaults: a tuple containing provided defaults\n"
+"\n"
+"For example,\n"
+"After f = itemtuplegetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).\n"
+"After g = itemtuplegetter([0, 2], defaults=(-1)), f([1, 2]) resutls in an IndexError.\n"
+"After h = itemtuplegetter([0], defaults=(-1, -2)), f([1, 2]) evaluates to (1,).\n"
+"After i = itemtuplegetter([1, 0], defaults=(-1, -2)), f([1, 2]) evaluates to (2, 1).");
+
+static PyObject *
+itemtuplegetter_new_impl(PyTypeObject *type, PyObject *itbl,
+                         PyObject *defaultitbl);
+
+static PyObject *
+itemtuplegetter_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 1
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_item = { &_Py_ID(defaults), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"", "defaults", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "itemtuplegetter",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[2];
+    PyObject * const *fastargs;
+    Py_ssize_t nargs = PyTuple_GET_SIZE(args);
+    Py_ssize_t noptargs = nargs + (kwargs ? PyDict_GET_SIZE(kwargs) : 0) - 1;
+    PyObject *itbl;
+    PyObject *defaultitbl = Py_None;
+
+    fastargs = _PyArg_UnpackKeywords(_PyTuple_CAST(args)->ob_item, nargs, kwargs, NULL, &_parser,
+            /*minpos*/ 1, /*maxpos*/ 2, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!fastargs) {
+        goto exit;
+    }
+    itbl = fastargs[0];
+    if (!noptargs) {
+        goto skip_optional_pos;
+    }
+    defaultitbl = fastargs[1];
+skip_optional_pos:
+    return_value = itemtuplegetter_new_impl(type, itbl, defaultitbl);
+
+exit:
+    return return_value;
+}
+/*[clinic end generated code: output=fecd71fb7c77a77d input=a9049054013a1b77]*/
