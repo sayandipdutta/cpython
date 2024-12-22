@@ -1424,9 +1424,8 @@ itemtuplegetter_call_impl(itemtuplegetterobject *itg, PyObject *obj)
     Py_ssize_t i = 0;
 
     if (ndefaults > 0) {
+        PyObject *item, *val, *found;
         for (i=0 ; i < ndefaults; i++) {
-            PyObject *item, *val, *found;
-
             item = PyTuple_GET_ITEM(itg->items, i);
             found = PyObject_GetItem(obj, item);
             if (found == NULL) {

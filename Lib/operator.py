@@ -318,8 +318,8 @@ class itemtuplegetter:
     ignored.
 
     The returned callable has two read-only properties:
-        operator.itemtulegetter.items: a tuple containing items to fetch
-        operator.itemtulegetter.defaults: a tuple containing provided defaults
+        operator.itemtuplegetter.items: a tuple containing items to fetch
+        operator.itemtuplegetter.defaults: a tuple containing provided defaults
 
     For example,
     After f = itemtuplegetter([0, 2], defaults=(-1, -2)), f([1, 2]) evaluates to (1, -2).
