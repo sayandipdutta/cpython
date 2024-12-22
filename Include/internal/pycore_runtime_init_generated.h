@@ -1128,6 +1128,7 @@ extern "C" {
     INIT_ID(origin), \
     INIT_ID(out_fd), \
     INIT_ID(outgoing), \
+    INIT_ID(outpath), \
     INIT_ID(overlapped), \
     INIT_ID(owner), \
     INIT_ID(pages), \

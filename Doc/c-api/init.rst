@@ -567,6 +567,15 @@ Initializing and finalizing the interpreter
    customized Python that always runs in isolated mode using
    :c:func:`Py_RunMain`.
 
+.. c:function:: int PyUnstable_AtExit(PyInterpreterState *interp, void (*func)(void *), void *data)
+
+   Register an :mod:`atexit` callback for the target interpreter *interp*.
+   This is similar to :c:func:`Py_AtExit`, but takes an explicit interpreter and
+   data pointer for the callback.
+
+   The :term:`GIL` must be held for *interp*.
+
+   .. versionadded:: 3.13
 
 Process-wide parameters
 =======================
@@ -2470,7 +2479,7 @@ code triggered by the finalizer blocks and calls :c:func:`PyEval_SaveThread`.
 
       {
           PyCriticalSection2 _py_cs2;
-          PyCriticalSection_Begin2(&_py_cs2, (PyObject*)(a), (PyObject*)(b))
+          PyCriticalSection2_Begin(&_py_cs2, (PyObject*)(a), (PyObject*)(b))
 
    In the default build, this macro expands to ``{``.
 
@@ -2482,7 +2491,7 @@ code triggered by the finalizer blocks and calls :c:func:`PyEval_SaveThread`.
 
    In the free-threaded build, this macro expands to::
 
-          PyCriticalSection_End2(&_py_cs2);
+          PyCriticalSection2_End(&_py_cs2);
       }
 
    In the default build, this macro expands to ``}``.
